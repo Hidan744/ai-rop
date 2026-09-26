@@ -1,0 +1,158 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Manrope", "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  --color-brand-50: #fff1e6;
+  --color-brand-100: #ffdcb8;
+  --color-brand-400: #ffab6b;
+  --color-brand-500: #ff8a3d;
+  --color-brand-600: #e8622a;
+  --color-brand-700: #b84a1a;
+
+  /* Тёплая нейтральная шкала («затмение») — как в Business Financial OS, тот же
+     дизайн-язык семейства AI-продуктов. */
+  --color-ink-950: #050504;
+  --color-ink-900: #0c0a08;
+  --color-ink-800: #1a1512;
+  --color-ink-700: #2a221c;
+  --color-ink-600: #3d332a;
+  --color-ink-500: #5c4e42;
+  --color-ink-400: #8c8178;
+  --color-ink-300: #a89c8f;
+  --color-ink-200: #cabfb3;
+  --color-ink-100: #e8e0d6;
+  --color-ink-50: #faf6f1;
+
+  /* Статусные цвета — тот же валидированный набор, что и в Business Financial OS:
+     единый дизайн-язык семейства AI-продуктов. */
+  --color-positive-500: #0ca30c;
+  --color-positive-600: #086b08;
+  --color-warning-500: #fab219;
+  --color-warning-600: #c98500;
+  --color-negative-500: #d03b3b;
+  --color-negative-600: #a82f2f;
+
+  /* Доп. акценты «авроры» для градиентов на лендинге и в лого — brand-* (выше) уже
+     совпадает с aurora-violet и является основным акцентным цветом всего приложения.
+     Имена сохранены с прошлой (фиолетовой) палитры — «аврора» здесь абстрактное
+     название акцентной системы, а не буквально цвета северного сияния. */
+  --color-aurora-amber: #b84a1a;
+  --color-aurora-amber-soft: #ffab6b;
+  --color-aurora-violet: #ff8a3d;
+  --color-aurora-blue: #e8622a;
+  --color-aurora-blue-soft: #ffd9a8;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-ink-800);
+  }
+  html {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-ink-950 text-ink-50 antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+  }
+  ::selection {
+    @apply bg-brand-500/30 text-white;
+  }
+}
+
+@layer components {
+  /* «Аврора» — фон и акценты лендинга. Размытые цветные пятна сверху, гаснущие к чёрному —
+     эффекты, которые неудобно выразить через Tailwind-утилиты, поэтому вынесены сюда. */
+  .aurora-backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .aurora-backdrop::before {
+    content: '';
+    position: absolute;
+    inset: -15% -10% 30% -10%;
+    background:
+      radial-gradient(34% 65% at 18% 0%, rgba(184, 74, 26, 0.5), transparent 72%),
+      radial-gradient(30% 60% at 44% 0%, rgba(255, 138, 61, 0.5), transparent 72%),
+      radial-gradient(30% 62% at 70% 0%, rgba(255, 138, 61, 0.42), transparent 72%),
+      radial-gradient(24% 50% at 92% 0%, rgba(184, 74, 26, 0.32), transparent 72%);
+    filter: blur(70px);
+  }
+  .aurora-backdrop::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to bottom, transparent 0%, var(--color-ink-950) 82%);
+  }
+
+  /* Тот же фон для страниц приложения — зафиксирован относительно окна (не сайдбара/контента),
+     приглушён под плотные таблицы и карточки с цифрами. */
+  .aurora-backdrop-app {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .aurora-backdrop-app::before {
+    content: '';
+    position: absolute;
+    inset: -10% -10% 40% -10%;
+    background:
+      radial-gradient(28% 55% at 15% 0%, rgba(184, 74, 26, 0.22), transparent 72%),
+      radial-gradient(24% 50% at 48% 0%, rgba(255, 138, 61, 0.26), transparent 72%),
+      radial-gradient(26% 52% at 80% 0%, rgba(184, 74, 26, 0.2), transparent 72%);
+    filter: blur(80px);
+  }
+  .aurora-backdrop-app::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to bottom, transparent 0%, var(--color-ink-950) 55%);
+  }
+
+  /* Кнопка со светящейся градиентной рамкой — двойной background-image (непрозрачная заливка
+     padding-box поверх градиента border-box), обычной рамкой такого эффекта не добиться. */
+  .btn-aurora-glow {
+    border: 1px solid transparent;
+    background-image:
+      linear-gradient(var(--color-ink-950), var(--color-ink-950)),
+      linear-gradient(120deg, var(--color-aurora-blue), var(--color-aurora-violet) 45%, var(--color-aurora-amber-soft));
+    background-origin: border-box;
+    background-clip: padding-box, border-box;
+    transition: box-shadow 0.15s, transform 0.15s;
+  }
+  .btn-aurora-glow:hover {
+    box-shadow: 0 6px 24px rgba(255, 138, 61, 0.4);
+    transform: translateY(-1px);
+  }
+
+  /* Градиентный текст для номеров шагов внедрения. */
+  .text-aurora-gradient {
+    background-image: linear-gradient(120deg, var(--color-aurora-amber-soft), var(--color-aurora-violet) 60%, var(--color-aurora-blue));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-ink-700 rounded-full;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
