@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import { generateId } from '@/lib/id'
 import { buildDemoWorkspace } from '@/lib/sales/demoData'
 import type { CsvDealRow } from '@/lib/sales/csvDealImport'
+import { pickSimulatedManagerReply, type Task, type TaskStatus } from '@/lib/sales/tasks'
 import type { ActivityLogEntry, CrmChoice, Deal, Manager, MonthlyPlanFact, SalesProfile } from '@/types/sales'
 
 interface SalesStoreState {
@@ -13,6 +14,7 @@ interface SalesStoreState {
   deals: Deal[]
   activityLog: ActivityLogEntry[]
   planFactHistory: MonthlyPlanFact[]
+  tasks: Task[]
 
   completeOnboarding: (input: { companyName: string; niche: string; monthlyPlan: number; crm: CrmChoice }) => void
   loadDemo: () => void
@@ -23,6 +25,14 @@ interface SalesStoreState {
   updateMonthlyPlan: (value: number) => void
 
   importDealsFromCsv: (rows: CsvDealRow[]) => { importedCount: number; createdManagers: string[] }
+
+  /** Ставит менеджеру новую задачу — из рекомендации, из карточки сделки или вручную. */
+  createTask: (input: { managerId: string; title: string; description?: string | null; dealId?: string | null; dueDate?: string | null }) => Task
+  updateTaskStatus: (taskId: string, status: TaskStatus) => void
+  /** РОП пишет комментарий в тред задачи — это и есть канал обратной связи в демо-продукте. */
+  addComment: (taskId: string, text: string) => void
+  /** Демо-приём (не реальная интеграция): подставляет правдоподобный ответ менеджера в тред. */
+  simulateManagerReply: (taskId: string) => void
 }
 
 function initials(name: string): string {
@@ -43,6 +53,7 @@ export const useSalesStore = create<SalesStoreState>()(
       deals: [],
       activityLog: [],
       planFactHistory: [],
+      tasks: [],
 
       completeOnboarding: ({ companyName, niche, monthlyPlan, crm }) => {
         const profile: SalesProfile = {
@@ -53,7 +64,7 @@ export const useSalesStore = create<SalesStoreState>()(
           crm,
           createdAt: new Date().toISOString(),
         }
-        set({ profile, managers: [], deals: [], activityLog: [], planFactHistory: [], onboardingComplete: true })
+        set({ profile, managers: [], deals: [], activityLog: [], planFactHistory: [], tasks: [], onboardingComplete: true })
       },
 
       loadDemo: () => {
@@ -64,6 +75,7 @@ export const useSalesStore = create<SalesStoreState>()(
           deals: demo.deals,
           activityLog: demo.activityLog,
           planFactHistory: demo.planFactHistory,
+          tasks: demo.tasks,
           onboardingComplete: true,
         })
       },
@@ -75,6 +87,7 @@ export const useSalesStore = create<SalesStoreState>()(
           deals: [],
           activityLog: [],
           planFactHistory: [],
+          tasks: [],
           onboardingComplete: false,
         })
       },
@@ -116,11 +129,61 @@ export const useSalesStore = create<SalesStoreState>()(
             closedAt: row.outcome !== 'open' ? new Date().toISOString() : null,
             outcome: row.outcome,
             lostReason: row.lostReason,
+            // CSV-импорт не несёт данных о следующем шаге/активности — РОП назначит их вручную.
+            nextStep: null,
+            lastActivityAt: createdAtISO,
           }
         })
 
         set((s) => ({ managers, deals: [...s.deals, ...newDeals] }))
         return { importedCount: newDeals.length, createdManagers }
+      },
+
+      createTask: ({ managerId, title, description = null, dealId = null, dueDate = null }) => {
+        const task: Task = {
+          id: generateId('task'),
+          managerId,
+          title,
+          description,
+          dealId,
+          dueDate,
+          status: 'new',
+          createdAt: new Date().toISOString(),
+          comments: [],
+        }
+        set((s) => ({ tasks: [task, ...s.tasks] }))
+        return task
+      },
+
+      updateTaskStatus: (taskId, status) => {
+        set((s) => ({ tasks: s.tasks.map((t) => (t.id === taskId ? { ...t, status } : t)) }))
+      },
+
+      addComment: (taskId, text) => {
+        const trimmed = text.trim()
+        if (!trimmed) return
+        set((s) => ({
+          tasks: s.tasks.map((t) =>
+            t.id === taskId
+              ? { ...t, comments: [...t.comments, { id: generateId('comment'), author: 'owner', text: trimmed, createdAt: new Date().toISOString() }] }
+              : t,
+          ),
+        }))
+      },
+
+      simulateManagerReply: (taskId) => {
+        const state = get()
+        const task = state.tasks.find((t) => t.id === taskId)
+        if (!task) return
+        const manager = state.managers.find((m) => m.id === task.managerId)
+        const replyText = pickSimulatedManagerReply(task.id, task.comments.length)
+        const comment = {
+          id: generateId('comment'),
+          author: manager?.name ?? 'Менеджер',
+          text: replyText,
+          createdAt: new Date().toISOString(),
+        }
+        set((s) => ({ tasks: s.tasks.map((t) => (t.id === taskId ? { ...t, comments: [...t.comments, comment] } : t)) }))
       },
     }),
     {
@@ -132,6 +195,7 @@ export const useSalesStore = create<SalesStoreState>()(
         deals: s.deals,
         activityLog: s.activityLog,
         planFactHistory: s.planFactHistory,
+        tasks: s.tasks,
       }),
     },
   ),

@@ -2,6 +2,7 @@ import { CheckCircle2, Percent, Timer, Wallet, AlertOctagon } from 'lucide-react
 import { KpiCard } from '@/features/dashboard/KpiCard'
 import { RecommendationCard } from '@/features/dashboard/RecommendationCard'
 import { SalesHealthPanel, type SalesHealthStatus } from '@/features/dashboard/SalesHealthPanel'
+import { ForecastSummaryCard } from '@/features/dashboard/ForecastSummaryCard'
 import { Card } from '@/components/ui/card'
 import { formatCurrency, formatPercent } from '@/lib/utils'
 import { useSalesStore } from '@/store/salesStore'
@@ -96,27 +97,13 @@ export function DashboardPage() {
           />
         </div>
 
-        <Card className="p-6 flex flex-col">
-          <div className="text-sm font-medium text-ink-200 mb-3">Прогноз месяца</div>
-          <div className="space-y-2.5 text-sm flex-1">
-            <div className="flex items-center justify-between">
-              <span className="text-ink-400">Факт с начала месяца</span>
-              <span className="text-ink-100 font-medium">{formatCurrency(monthToDateFact)}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-ink-400">Взвешенная воронка</span>
-              <span className="text-ink-100 font-medium">{formatCurrency(facts.weightedPipelineValue)}</span>
-            </div>
-            <div className="flex items-center justify-between pt-2 border-t border-ink-800">
-              <span className="text-ink-300">Прогноз на конец месяца</span>
-              <span className="text-brand-400 font-semibold">{formatCurrency(projectedMonthEnd)}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-ink-400">План месяца</span>
-              <span className="text-ink-100 font-medium">{formatCurrency(profile.monthlyPlan)}</span>
-            </div>
-          </div>
-        </Card>
+        <ForecastSummaryCard
+          plan={profile.monthlyPlan}
+          closedValue={monthToDateFact}
+          openPipelineValue={facts.openPipelineValue}
+          weightedPipelineValue={facts.weightedPipelineValue}
+          forecast={projectedMonthEnd}
+        />
       </div>
 
       {facts.stuckFlags.length > 0 && (

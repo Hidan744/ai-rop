@@ -8,6 +8,7 @@ import { DashboardPage } from '@/pages/DashboardPage'
 import { FunnelPage } from '@/pages/FunnelPage'
 import { ManagersPage } from '@/pages/ManagersPage'
 import { DealsPage } from '@/pages/DealsPage'
+import { TasksPage } from '@/pages/TasksPage'
 import { ForecastPage } from '@/pages/ForecastPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 
@@ -24,6 +25,7 @@ function App() {
           <Route path="funnel" element={<FunnelPage />} />
           <Route path="managers" element={<ManagersPage />} />
           <Route path="deals" element={<DealsPage />} />
+          <Route path="tasks" element={<TasksPage />} />
           <Route path="forecast" element={<ForecastPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>

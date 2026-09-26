@@ -3,11 +3,12 @@ import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAx
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Slider } from '@/components/ui/slider'
 import { Button } from '@/components/ui/button'
+import { LostReasonBreakdown } from '@/features/deals/LostReasonBreakdown'
 import { CATEGORICAL, CHART_CHROME } from '@/lib/chartColors'
 import { cn, formatCurrency, formatSigned } from '@/lib/utils'
 import { useSalesStore } from '@/store/salesStore'
 import { useSalesFacts } from '@/hooks/useSalesFacts'
-import { applyWhatIfToForecast, calculateMonthToDateWonValue, DEFAULT_WHAT_IF_PARAMS, type WhatIfParams } from '@/lib/sales/formulas'
+import { applyWhatIfToForecast, calculateMonthToDateWonValue, daysBetween, DEFAULT_WHAT_IF_PARAMS, type WhatIfParams } from '@/lib/sales/formulas'
 
 const MONTH_FORMATTER = new Intl.DateTimeFormat('ru-RU', { month: 'short', year: '2-digit' })
 
@@ -51,6 +52,11 @@ export function ForecastPage() {
   function updateParam<K extends keyof WhatIfParams>(key: K, value: WhatIfParams[K]) {
     setParams((p) => ({ ...p, [key]: value }))
   }
+
+  const lostThisMonth = useMemo(
+    () => deals.filter((d) => d.outcome === 'lost' && d.closedAt && daysBetween(d.closedAt, referenceISO) <= 30),
+    [deals, referenceISO],
+  )
 
   return (
     <div className="space-y-6">
@@ -114,6 +120,8 @@ export function ForecastPage() {
           </CardContent>
         </Card>
       </div>
+
+      <LostReasonBreakdown deals={lostThisMonth} />
 
       <Card>
         <CardHeader>

@@ -1,9 +1,12 @@
-import { ArrowDown } from 'lucide-react'
+import { useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatCurrency, formatPercent, cn } from '@/lib/utils'
 import { useSalesFacts } from '@/hooks/useSalesFacts'
+import { useSalesStore } from '@/store/salesStore'
 import { CATEGORICAL, STATUS } from '@/lib/chartColors'
-import { FUNNEL_STAGE_LABELS, OPEN_FUNNEL_STAGES } from '@/types/sales'
+import { buildStageTransitionExplanation } from '@/lib/sales/funnelInsights'
+import { StageTransitionDisclosure } from '@/features/funnel/StageTransitionDisclosure'
+import { FUNNEL_STAGE_LABELS, OPEN_FUNNEL_STAGES, type FunnelStage } from '@/types/sales'
 
 // Фиксированный порядок слотов категориальной палитры — по позиции стадии в воронке,
 // НЕ по величине показателя (см. dataviz skill).
@@ -17,9 +20,24 @@ function conversionStatusColor(rate: number | null): string {
   return STATUS.critical
 }
 
+const FUNNEL_PATH: FunnelStage[] = [...OPEN_FUNNEL_STAGES, 'won']
+
 export function FunnelPage() {
-  const facts = useSalesFacts()
+  const referenceISO = new Date().toISOString()
+  const facts = useSalesFacts(referenceISO)
+  const deals = useSalesStore((s) => s.deals)
+  const activityLog = useSalesStore((s) => s.activityLog)
   const maxCount = Math.max(1, ...OPEN_FUNNEL_STAGES.map((s) => facts.stageCounts[s] ?? 0))
+
+  const explanations = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof buildStageTransitionExplanation>>()
+    for (let i = 0; i < FUNNEL_PATH.length - 1; i++) {
+      const from = FUNNEL_PATH[i]
+      const to = FUNNEL_PATH[i + 1]
+      map.set(`${from}::${to}`, buildStageTransitionExplanation({ deals, activityLog, from, to, referenceISO }))
+    }
+    return map
+  }, [deals, activityLog, referenceISO])
 
   return (
     <div className="space-y-6">
@@ -53,14 +71,11 @@ export function FunnelPage() {
                   <div className="w-32 shrink-0 text-right text-sm text-ink-300">{formatCurrency(value)}</div>
                 </div>
                 {conversion && i < OPEN_FUNNEL_STAGES.length - 1 && (
-                  <div className="flex items-center gap-2 pl-44 py-1">
-                    <ArrowDown className="size-3.5 text-ink-600" />
-                    <span
-                      className="text-xs font-medium rounded-full px-2 py-0.5"
-                      style={{ color: conversionStatusColor(conversion.rate), backgroundColor: `${conversionStatusColor(conversion.rate)}1a` }}
-                    >
-                      {conversion.rate !== null ? formatPercent(conversion.rate) : '—'} конверсия
-                    </span>
+                  <div className="pl-44 py-1">
+                    <StageTransitionDisclosure
+                      explanation={explanations.get(`${conversion.from}::${conversion.to}`)!}
+                      color={conversionStatusColor(conversion.rate)}
+                    />
                   </div>
                 )}
               </div>
