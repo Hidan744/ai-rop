@@ -1,5 +1,19 @@
 import { generateBusinessId, generateId } from '@/lib/id'
-import type { ActivityLogEntry, Deal, DealOutcome, DealSource, FunnelStage, LostReason, Manager, MonthlyPlanFact, SalesProfile, StageHistoryEntry } from '@/types/sales'
+import type { Task, TaskComment } from '@/lib/sales/tasks'
+import type {
+  ActivityLogEntry,
+  Deal,
+  DealOutcome,
+  DealSource,
+  FunnelStage,
+  LostReason,
+  Manager,
+  MonthlyPlanFact,
+  NextStep,
+  NextStepType,
+  SalesProfile,
+  StageHistoryEntry,
+} from '@/types/sales'
 
 export interface DemoWorkspace {
   profile: SalesProfile
@@ -7,6 +21,7 @@ export interface DemoWorkspace {
   deals: Deal[]
   activityLog: ActivityLogEntry[]
   planFactHistory: MonthlyPlanFact[]
+  tasks: Task[]
 }
 
 /** Простой seeded PRNG (mulberry32) — стабильный демо-датасет между перезапусками/тестами. */
@@ -45,7 +60,16 @@ const COMPANY_NAMES = [
   'ООО «Кристалл Медиа»',
 ]
 
-const LOST_REASONS: LostReason[] = ['price', 'no_budget', 'chose_competitor', 'no_response', 'not_relevant', 'timing']
+const LOST_REASONS: LostReason[] = ['price', 'no_budget', 'chose_competitor', 'no_response', 'not_relevant', 'timing', 'other']
+
+/** Правдоподобный следующий шаг по умолчанию для каждой открытой стадии воронки. */
+const NEXT_STEP_OPTIONS_BY_STAGE: Partial<Record<FunnelStage, NextStepType[]>> = {
+  new_lead: ['call'],
+  qualification: ['call', 'schedule_meeting'],
+  meeting_scheduled: ['send_proposal'],
+  proposal_sent: ['get_decision', 'call'],
+  negotiation: ['send_contract', 'get_payment', 'get_decision'],
+}
 
 /** Build stage history for a deal that has progressed linearly through `stagesReached`, with
  * dwell time per stage drawn from a per-stage range (days), ending either open at the last
@@ -115,7 +139,11 @@ export function buildDemoWorkspace(now: Date = new Date()): DemoWorkspace {
     lostReason?: LostReason | null
     closedDaysAgo?: number
     dwellOverride?: (stage: FunnelStage) => [number, number]
-  }) {
+    /** Принудительно задать следующий шаг (или явно null) — для headline-историй демо. */
+    nextStepOverride?: NextStep | null
+    /** Принудительно задать «дней без активности» (не берётся из случайного распределения). */
+    lastActivityDaysAgoOverride?: number
+  }): Deal {
     const { history, createdAt, stageEnteredAt } = buildProgression(
       rng,
       now,
@@ -125,7 +153,35 @@ export function buildDemoWorkspace(now: Date = new Date()): DemoWorkspace {
     )
     const lastStage = input.stagesReached[input.stagesReached.length - 1]
     const closedAt = input.outcome !== 'open' ? daysAgoISO(now, input.closedDaysAgo ?? 1) : null
-    deals.push({
+
+    let nextStep: NextStep | null = null
+    if (input.outcome === 'open') {
+      if (input.nextStepOverride !== undefined) {
+        nextStep = input.nextStepOverride
+      } else if (rng() >= 0.15) {
+        // ~15% открытых сделок намеренно оставлены без следующего шага — сами по себе сигнал
+        // внимания (см. dealAttention.ts isDealWithoutNextStep).
+        const options = NEXT_STEP_OPTIONS_BY_STAGE[lastStage] ?? ['call']
+        const type = pick(rng, options)
+        const overdue = rng() < 0.35
+        const offsetDays = overdue ? -(1 + Math.floor(rng() * 12)) : 1 + Math.floor(rng() * 10)
+        nextStep = { type, dueDate: daysAgoISO(now, -offsetDays) }
+      }
+    }
+
+    let lastActivityAt: string
+    if (closedAt) {
+      lastActivityAt = closedAt
+    } else if (input.lastActivityDaysAgoOverride !== undefined) {
+      lastActivityAt = daysAgoISO(now, input.lastActivityDaysAgoOverride)
+    } else {
+      const stale = rng() < 0.2 // ~20% открытых сделок намеренно «протухли» без активности
+      const rawDaysSince = stale ? 6 + Math.floor(rng() * 20) : Math.floor(rng() * 4)
+      const cappedDaysSince = Math.min(rawDaysSince, input.startedDaysAgo)
+      lastActivityAt = daysAgoISO(now, cappedDaysSince)
+    }
+
+    const deal: Deal = {
       id: generateId('deal'),
       title: COMPANY_NAMES[input.companyIdx % COMPANY_NAMES.length],
       managerId: input.managerId,
@@ -138,28 +194,39 @@ export function buildDemoWorkspace(now: Date = new Date()): DemoWorkspace {
       closedAt,
       outcome: input.outcome,
       lostReason: input.outcome === 'lost' ? (input.lostReason ?? pick(rng, LOST_REASONS)) : null,
-    })
+      nextStep,
+      lastActivityAt,
+    }
+    deals.push(deal)
+    return deal
   }
 
   let companyIdx = 0
 
   // --- Иван Соколов: сильный старт воронки, но 3 крупные сделки зависли на «КП отправлено» ---
   // Стуковые (зависшие) крупные сделки — именно этот менеджер и эта стадия должны всплыть
-  // в топ рекомендаций.
-  addDeal({
+  // в топ рекомендаций. Явно помечены просроченным следующим шагом и «протухшей» активностью,
+  // чтобы та же история читалась и в блоке «Требуют внимания», и в задачах, поставленных Ивану.
+  const ivanStuckDeal1 = addDeal({
     managerId: 'mgr_ivan', companyIdx: companyIdx++, value: 2_400_000, source: 'amocrm',
     startedDaysAgo: 34, stagesReached: ['new_lead', 'qualification', 'meeting_scheduled', 'proposal_sent'],
     outcome: 'open', dwellOverride: (s) => (s === 'proposal_sent' ? [22, 22] : TYPICAL_DWELL[s]),
+    nextStepOverride: { type: 'get_decision', dueDate: daysAgoISO(now, 9) },
+    lastActivityDaysAgoOverride: 12,
   })
-  addDeal({
+  const ivanStuckDeal2 = addDeal({
     managerId: 'mgr_ivan', companyIdx: companyIdx++, value: 1_850_000, source: 'bitrix24',
     startedDaysAgo: 30, stagesReached: ['new_lead', 'qualification', 'meeting_scheduled', 'proposal_sent'],
     outcome: 'open', dwellOverride: (s) => (s === 'proposal_sent' ? [19, 19] : TYPICAL_DWELL[s]),
+    nextStepOverride: { type: 'call', dueDate: daysAgoISO(now, -2) },
+    lastActivityDaysAgoOverride: 6,
   })
-  addDeal({
+  const ivanStuckDeal3 = addDeal({
     managerId: 'mgr_ivan', companyIdx: companyIdx++, value: 3_100_000, source: 'amocrm',
     startedDaysAgo: 40, stagesReached: ['new_lead', 'qualification', 'meeting_scheduled', 'proposal_sent'],
     outcome: 'open', dwellOverride: (s) => (s === 'proposal_sent' ? [26, 26] : TYPICAL_DWELL[s]),
+    nextStepOverride: { type: 'get_decision', dueDate: daysAgoISO(now, 15) },
+    lastActivityDaysAgoOverride: 15,
   })
   // Остальные сделки Ивана — обычная активность за 3 месяца, включая выигрыши/проигрыши.
   const ivanMix: Array<[FunnelStage[], DealOutcome, number, number]> = [
@@ -230,6 +297,101 @@ export function buildDemoWorkspace(now: Date = new Date()): DemoWorkspace {
     }
   }
 
+  // --- Задачи и обратная связь: несколько задач Ивану Соколову по его же зависшим сделкам ---
+  // (та же headline-история, что и в рекомендациях/блоке внимания), плюс пара задач другим
+  // менеджерам для разнообразия доски — чтобы демо не выглядело пустым «из коробки».
+  function comment(author: string, text: string, hoursAgo: number): TaskComment {
+    return { id: generateId('comment'), author, text, createdAt: daysAgoISO(now, hoursAgo / 24) }
+  }
+
+  const tasks: Task[] = [
+    {
+      id: generateId('task'),
+      managerId: 'mgr_ivan',
+      title: `Узнать, что тормозит КП по «${ivanStuckDeal1.title}» — сделка на ${(ivanStuckDeal1.value / 1_000_000).toFixed(1)} млн ₽ зависла на 3 недели`,
+      description: 'Клиент не даёт обратной связи по коммерческому предложению почти 3 недели. Нужно выяснить причину и понять, реально ли ещё закрыть сделку в этом квартале.',
+      dealId: ivanStuckDeal1.id,
+      dueDate: daysAgoISO(now, 2),
+      status: 'in_progress',
+      createdAt: daysAgoISO(now, 5),
+      comments: [
+        comment('owner', 'Иван, что с КП по этой сделке? Уже 3 недели на этой стадии, сумма крупная — не хотелось бы её потерять.', 100),
+        comment('Иван Соколов', 'Клиент запросил доработку тех. задания, жду от него правки. Договорились созвониться завтра, подтолкну.', 70),
+      ],
+    },
+    {
+      id: generateId('task'),
+      managerId: 'mgr_ivan',
+      title: `Проверить сделку «${ivanStuckDeal2.title}», зависшую на КП (${(ivanStuckDeal2.value / 1_000_000).toFixed(2)} млн ₽)`,
+      description: null,
+      dealId: ivanStuckDeal2.id,
+      dueDate: daysAgoISO(now, -2),
+      status: 'new',
+      createdAt: daysAgoISO(now, 3),
+      comments: [
+        comment('owner', 'Есть новости по этой сделке? Она тоже давно в «КП отправлено».', 60),
+        comment('Иван Соколов', 'Пока не звонил, приоритет был на первую сделку — возьму в работу сегодня-завтра.', 40),
+      ],
+    },
+    {
+      id: generateId('task'),
+      managerId: 'mgr_ivan',
+      title: 'Разобрать снижение конверсии звонок → встреча на этой неделе',
+      description: 'Конверсия упала почти вдвое к предыдущей неделе. Нужно понять причину — скрипт, качество лидов или что-то ещё — и вернуть показатель в норму.',
+      dealId: null,
+      dueDate: daysAgoISO(now, 1),
+      status: 'in_progress',
+      createdAt: daysAgoISO(now, 4),
+      comments: [
+        comment('owner', 'Иван, обратили внимание — конверсия звонок → встреча упала почти в 2 раза за неделю. В чём дело?', 90),
+        comment(
+          'Иван Соколов',
+          'Есть такое: часть звонков — по старой базе, много отказов на этапе «не актуально». Плюс тестирую новый скрипт, он явно слабее старого. Возвращаюсь к прежнему и отпишусь по результатам.',
+          65,
+        ),
+      ],
+    },
+    {
+      id: generateId('task'),
+      managerId: 'mgr_ivan',
+      title: `Прислать актуальный прайс по сделке «${ivanStuckDeal3.title}»`,
+      description: null,
+      dealId: ivanStuckDeal3.id,
+      dueDate: daysAgoISO(now, 6),
+      status: 'done',
+      createdAt: daysAgoISO(now, 8),
+      comments: [
+        comment('owner', 'Нужен обновлённый прайс с новыми ценами — отправь клиенту, пока сделка совсем не остыла.', 150),
+        comment('Иван Соколов', 'Готово, отправил обновлённый прайс клиенту сегодня утром.', 130),
+      ],
+    },
+    {
+      id: generateId('task'),
+      managerId: 'mgr_olga',
+      title: 'Обновить данные по сделкам в CRM за прошлую неделю',
+      description: null,
+      dealId: null,
+      dueDate: daysAgoISO(now, 4),
+      status: 'done',
+      createdAt: daysAgoISO(now, 6),
+      comments: [
+        comment('owner', 'Ольга, актуализируй, пожалуйста, стадии по сделкам — в отчёте расхождения.', 120),
+        comment('Ольга Титова', 'Сделала, все стадии актуальны на сегодняшнее утро.', 95),
+      ],
+    },
+    {
+      id: generateId('task'),
+      managerId: 'mgr_dmitry',
+      title: 'Подготовить коммерческое предложение для нового лида',
+      description: 'Крупный входящий лид с сайта — нужно КП в течение двух дней, пока интерес не остыл.',
+      dealId: null,
+      dueDate: daysAgoISO(now, -3),
+      status: 'new',
+      createdAt: daysAgoISO(now, 1),
+      comments: [comment('owner', 'Дмитрий, возьми в работу — детали лида скинул в чат.', 20)],
+    },
+  ]
+
   // --- План/факт по прошлым месяцам (для страницы «Прогноз») ---
   // Масштаб плана подобран под суммарный объём демо-сделок (5 менеджеров × ~55 сделок), чтобы
   // план/факт и прогноз конца месяца выглядели правдоподобно, а не в разы отличались от плана.
@@ -249,7 +411,7 @@ export function buildDemoWorkspace(now: Date = new Date()): DemoWorkspace {
     createdAt: new Date().toISOString(),
   }
 
-  return { profile, managers, deals, activityLog, planFactHistory }
+  return { profile, managers, deals, activityLog, planFactHistory, tasks }
 }
 
 function monthsBack(now: Date, count: number): string[] {

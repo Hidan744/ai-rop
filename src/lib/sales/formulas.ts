@@ -143,7 +143,8 @@ export interface AdjacentStageConversion {
   rate: number | null
 }
 
-function dealReachedStage(deal: Deal, stage: FunnelStage): boolean {
+/** Прошла ли сделка через указанную стадию (сейчас находится в ней или это есть в её истории). */
+export function dealReachedStage(deal: Deal, stage: FunnelStage): boolean {
   if (deal.stage === stage) return true
   return deal.stageHistory.some((h) => h.stage === stage)
 }
@@ -182,6 +183,18 @@ export function calculateDealCycleLengthDays(deal: Deal): number | null {
 export function calculateAverageCycleLengthDays(deals: Deal[]): number | null {
   const values = deals.map(calculateDealCycleLengthDays).filter((v): v is number => v !== null)
   return average(values)
+}
+
+/**
+ * Среднее время от создания сделки (входа в первую стадию воронки) до перехода во вторую
+ * стадию истории — прокси «скорости первого отклика» отдела, посчитанный из реальных данных
+ * (а не выдуманное статичное число). null, если нет сделок с хотя бы двумя записями истории.
+ */
+export function calculateAverageFirstResponseHours(deals: Deal[]): number | null {
+  const hours = deals
+    .filter((d) => d.stageHistory.length >= 2)
+    .map((d) => daysBetween(d.stageHistory[0].enteredAt, d.stageHistory[1].enteredAt) * 24)
+  return average(hours)
 }
 
 export interface LostReasonBreakdownItem {

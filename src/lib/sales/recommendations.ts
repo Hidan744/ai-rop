@@ -101,14 +101,18 @@ export interface ManagerCallMeetingConversionFact {
   changePct: number | null
 }
 
-/** Агрегирует звонки/встречи менеджера за окно дней, начиная с startISO (исключая endISO). */
-function aggregateActivity(log: ActivityLogEntry[], managerId: string, startISO: string, endISO: string) {
+/**
+ * Агрегирует звонки/встречи за окно дней, начиная с startISO (исключая endISO). managerId ===
+ * null агрегирует по всему отделу — используется и здесь (по менеджеру), и в funnelInsights.ts
+ * (портфельно, для конверсии звонок→встреча в объяснении перехода «Квалификация → Встреча»).
+ */
+export function aggregateActivity(log: ActivityLogEntry[], managerId: string | null, startISO: string, endISO: string) {
   const start = new Date(startISO).getTime()
   const end = new Date(endISO).getTime()
   let calls = 0
   let meetings = 0
   for (const entry of log) {
-    if (entry.managerId !== managerId) continue
+    if (managerId !== null && entry.managerId !== managerId) continue
     const t = new Date(entry.date).getTime()
     if (t >= start && t < end) {
       calls += entry.calls
@@ -116,6 +120,34 @@ function aggregateActivity(log: ActivityLogEntry[], managerId: string, startISO:
     }
   }
   return { calls, meetings }
+}
+
+/** Начало текущей и предыдущей недели наблюдения (7 дней) относительно referenceISO. */
+export function weeklyWindows(referenceISO: string): { currentWeekStart: string; previousWeekStart: string } {
+  const weekMs = 7 * 24 * 60 * 60 * 1000
+  return {
+    currentWeekStart: new Date(new Date(referenceISO).getTime() - weekMs).toISOString(),
+    previousWeekStart: new Date(new Date(referenceISO).getTime() - 2 * weekMs).toISOString(),
+  }
+}
+
+/**
+ * Конверсия между каждой парой соседних стадий воронки за последнюю неделю и за предыдущую —
+ * общий строительный блок и для портфельной рекомендации о падении конверсии (buildRecommendations),
+ * и для объяснения конкретного перехода по клику на стрелку воронки (funnelInsights.ts) — чтобы
+ * не считать одно и то же дважды разными формулами.
+ */
+export function buildWeeklyStageConversionCohorts(deals: Deal[], referenceISO: string) {
+  const { currentWeekStart, previousWeekStart } = weeklyWindows(referenceISO)
+  const dealsEnteredBy = (startISO: string, endISO: string) =>
+    deals.filter((d) => {
+      const t = new Date(d.createdAt).getTime()
+      return t >= new Date(startISO).getTime() && t < new Date(endISO).getTime()
+    })
+  return {
+    current: calculateAdjacentStageConversions(dealsEnteredBy(currentWeekStart, referenceISO)),
+    previous: calculateAdjacentStageConversions(dealsEnteredBy(previousWeekStart, currentWeekStart)),
+  }
 }
 
 /**
@@ -127,9 +159,7 @@ export function buildManagerCallMeetingConversionFacts(
   managers: Manager[],
   referenceISO: string,
 ): ManagerCallMeetingConversionFact[] {
-  const weekMs = 7 * 24 * 60 * 60 * 1000
-  const currentStart = new Date(new Date(referenceISO).getTime() - weekMs).toISOString()
-  const previousStart = new Date(new Date(referenceISO).getTime() - 2 * weekMs).toISOString()
+  const { currentWeekStart: currentStart, previousWeekStart: previousStart } = weeklyWindows(referenceISO)
 
   return managers.map((manager) => {
     const current = aggregateActivity(activityLog, manager.id, currentStart, referenceISO)
@@ -256,17 +286,7 @@ export function buildRecommendations(
 
   // Портфельный (не по конкретному менеджеру) разрыв конверсии между стадиями — сравнение
   // сквозной воронки за последнюю неделю против предыдущей.
-  const weekMs = 7 * 24 * 60 * 60 * 1000
-  const currentWeekStart = new Date(new Date(referenceISO).getTime() - weekMs).toISOString()
-  const previousWeekStart = new Date(new Date(referenceISO).getTime() - 2 * weekMs).toISOString()
-  const dealsEnteredBy = (startISO: string, endISO: string) =>
-    deals.filter((d) => {
-      const t = new Date(d.createdAt).getTime()
-      return t >= new Date(startISO).getTime() && t < new Date(endISO).getTime()
-    })
-
-  const currentWeekConversions = calculateAdjacentStageConversions(dealsEnteredBy(currentWeekStart, referenceISO))
-  const previousWeekConversions = calculateAdjacentStageConversions(dealsEnteredBy(previousWeekStart, currentWeekStart))
+  const { current: currentWeekConversions, previous: previousWeekConversions } = buildWeeklyStageConversionCohorts(deals, referenceISO)
   const previousByPair = new Map(previousWeekConversions.map((c) => [`${c.from}::${c.to}`, c]))
 
   for (const current of currentWeekConversions) {

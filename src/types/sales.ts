@@ -32,16 +32,22 @@ export const WON_FUNNEL_PATH: FunnelStage[] = [...OPEN_FUNNEL_STAGES, 'won']
 
 export type DealOutcome = 'open' | 'won' | 'lost'
 
-/** Причина отказа — обязательна для сделок с outcome === 'lost'. */
-export type LostReason = 'price' | 'no_budget' | 'chose_competitor' | 'no_response' | 'not_relevant' | 'timing'
+/**
+ * Причина отказа — обязательна для сделок с outcome === 'lost'. Фиксированный набор из 7
+ * причин (бриф продукта): 'not_relevant'/'timing' сохранены как идентификаторы ради обратной
+ * совместимости с уже импортированными CSV-данными, но переименованы в подписях под точные
+ * формулировки брифа («Не устроили условия» / «Отложили решение»); 'other' добавлена как есть.
+ */
+export type LostReason = 'price' | 'no_budget' | 'chose_competitor' | 'no_response' | 'not_relevant' | 'timing' | 'other'
 
 export const LOST_REASON_LABELS: Record<LostReason, string> = {
-  price: 'Дорого',
+  price: 'Цена',
   no_budget: 'Нет бюджета',
-  chose_competitor: 'Выбрали конкурента',
-  no_response: 'Пропал на связи',
-  not_relevant: 'Не актуально',
-  timing: 'Не время',
+  chose_competitor: 'Конкурент',
+  no_response: 'Не вышли на связь',
+  not_relevant: 'Не устроили условия',
+  timing: 'Отложили решение',
+  other: 'Другое',
 }
 
 /** Источник данных сделки — визуально продаёт идею «надстройки над CRM» в демо. */
@@ -65,6 +71,25 @@ export interface StageHistoryEntry {
   enteredAt: string
 }
 
+/** Тип следующего шага по сделке — фиксированный набор действий менеджера (бриф продукта). */
+export type NextStepType = 'call' | 'send_proposal' | 'schedule_meeting' | 'send_contract' | 'get_decision' | 'get_payment'
+
+export const NEXT_STEP_TYPE_LABELS: Record<NextStepType, string> = {
+  call: 'Позвонить',
+  send_proposal: 'Отправить КП',
+  schedule_meeting: 'Назначить встречу',
+  send_contract: 'Отправить договор',
+  get_decision: 'Получить решение',
+  get_payment: 'Получить оплату',
+}
+
+/** Следующее запланированное действие по сделке — ответственный наследуется от сделки (её менеджер). */
+export interface NextStep {
+  type: NextStepType
+  /** ISO-дата дедлайна следующего шага. */
+  dueDate: string
+}
+
 export interface Deal {
   id: string
   title: string
@@ -80,6 +105,10 @@ export interface Deal {
   closedAt: string | null
   outcome: DealOutcome
   lostReason: LostReason | null
+  /** Следующий шаг по сделке — null, если не назначен (сам по себе сигнал внимания). */
+  nextStep: NextStep | null
+  /** Момент последней зафиксированной активности по сделке — основа для «дней без активности». */
+  lastActivityAt: string
 }
 
 /** Дневная активность менеджера — основа для расчёта конверсии «звонок → встреча». */

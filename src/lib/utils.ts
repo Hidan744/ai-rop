@@ -29,3 +29,12 @@ export function formatSigned(value: number, formatter: (v: number) => string) {
   const sign = value > 0 ? '+' : ''
   return `${sign}${formatter(value)}`
 }
+
+/** Часы (дробные) → «2ч 14м» — компактный формат для метрик времени отклика/цикла. */
+export function formatHoursMinutes(hours: number): string {
+  if (!Number.isFinite(hours) || hours < 0) return '—'
+  const totalMinutes = Math.round(hours * 60)
+  const h = Math.floor(totalMinutes / 60)
+  const m = totalMinutes % 60
+  return `${h}ч ${m}м`
+}
