@@ -1,6 +1,5 @@
 import { generateBusinessId, generateId } from '@/lib/id'
 import type { ActivityLogEntry, Deal, DealOutcome, DealSource, FunnelStage, LostReason, Manager, MonthlyPlanFact, SalesProfile, StageHistoryEntry } from '@/types/sales'
-import { OPEN_FUNNEL_STAGES } from '@/types/sales'
 
 export interface DemoWorkspace {
   profile: SalesProfile

@@ -221,6 +221,20 @@ export function calibrateStageWinProbabilities(deals: Deal[]): Partial<Record<Fu
   return result
 }
 
+/** Сумма закрытых-выигранных сделок с начала текущего календарного месяца по referenceISO. */
+export function calculateMonthToDateWonValue(deals: Deal[], referenceISO: string): number {
+  const ref = new Date(referenceISO)
+  const monthStart = new Date(Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth(), 1)).getTime()
+  const refTime = ref.getTime()
+  return deals
+    .filter((d) => {
+      if (d.outcome !== 'won' || !d.closedAt) return false
+      const closedTime = new Date(d.closedAt).getTime()
+      return closedTime >= monthStart && closedTime <= refTime
+    })
+    .reduce((sum, d) => sum + d.value, 0)
+}
+
 export interface PipelineDeal {
   value: number
   stage: FunnelStage

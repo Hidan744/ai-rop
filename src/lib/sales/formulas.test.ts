@@ -8,6 +8,7 @@ import {
   calculateConversionRate,
   calculateCurrentStageDwellDays,
   calculateDealCycleLengthDays,
+  calculateMonthToDateWonValue,
   calculateOverallFunnelConversion,
   calculatePeriodGrowthPct,
   calculateStageMedianDwellDays,
@@ -230,6 +231,18 @@ describe('calculateDealCycleLengthDays / calculateAverageCycleLengthDays', () =>
       makeDeal({ id: 'open', outcome: 'open' }),
     ]
     expect(calculateAverageCycleLengthDays(deals)).toBe(15)
+  })
+})
+
+describe('calculateMonthToDateWonValue', () => {
+  it('sums won deals closed within the current month up to the reference date', () => {
+    const deals = [
+      makeDeal({ id: 'a', outcome: 'won', value: 100000, closedAt: '2026-09-05T00:00:00.000Z' }),
+      makeDeal({ id: 'b', outcome: 'won', value: 200000, closedAt: '2026-08-28T00:00:00.000Z' }), // previous month
+      makeDeal({ id: 'c', outcome: 'won', value: 50000, closedAt: '2026-09-20T00:00:00.000Z' }), // after reference
+      makeDeal({ id: 'd', outcome: 'lost', value: 300000, lostReason: 'price', closedAt: '2026-09-05T00:00:00.000Z' }),
+    ]
+    expect(calculateMonthToDateWonValue(deals, '2026-09-10T00:00:00.000Z')).toBe(100000)
   })
 })
 
