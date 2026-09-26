@@ -27,7 +27,7 @@ interface SalesStoreState {
   importDealsFromCsv: (rows: CsvDealRow[]) => { importedCount: number; createdManagers: string[] }
 
   /** Ставит менеджеру новую задачу — из рекомендации, из карточки сделки или вручную. */
-  createTask: (input: { managerId: string; title: string; description?: string | null; dealId?: string | null; dueDate?: string | null }) => Task
+  createTask: (input: { managerId: string; title: string; description?: string | null; dealId?: string | null; startDate?: string | null; dueDate?: string | null }) => Task
   updateTaskStatus: (taskId: string, status: TaskStatus) => void
   /** РОП пишет комментарий в тред задачи — это и есть канал обратной связи в демо-продукте. */
   addComment: (taskId: string, text: string) => void
@@ -139,13 +139,14 @@ export const useSalesStore = create<SalesStoreState>()(
         return { importedCount: newDeals.length, createdManagers }
       },
 
-      createTask: ({ managerId, title, description = null, dealId = null, dueDate = null }) => {
+      createTask: ({ managerId, title, description = null, dealId = null, startDate = null, dueDate = null }) => {
         const task: Task = {
           id: generateId('task'),
           managerId,
           title,
           description,
           dealId,
+          startDate,
           dueDate,
           status: 'new',
           createdAt: new Date().toISOString(),

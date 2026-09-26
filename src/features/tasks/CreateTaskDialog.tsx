@@ -31,6 +31,7 @@ export function CreateTaskDialog({
   const [managerId, setManagerId] = useState(initialManagerId ?? '')
   const [title, setTitle] = useState(initialTitle ?? '')
   const [description, setDescription] = useState('')
+  const [startDate, setStartDate] = useState('')
   const [dueDate, setDueDate] = useState('')
 
   // Пересобираем поля формы каждый раз при открытии — диалог общий для трёх мест вызова,
@@ -40,6 +41,7 @@ export function CreateTaskDialog({
       setManagerId(initialManagerId ?? '')
       setTitle(initialTitle ?? '')
       setDescription('')
+      setStartDate('')
       setDueDate('')
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -53,6 +55,7 @@ export function CreateTaskDialog({
       title: title.trim(),
       description: description.trim() || null,
       dealId: initialDealId,
+      startDate: startDate ? new Date(startDate).toISOString() : null,
       dueDate: dueDate ? new Date(dueDate).toISOString() : null,
     })
     onOpenChange(false)
@@ -92,9 +95,27 @@ export function CreateTaskDialog({
               <Textarea id="task-description" value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder="Контекст задачи" />
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="task-due">Срок (необязательно)</Label>
-              <Input id="task-due" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="task-start">Начало (необязательно)</Label>
+                <Input
+                  id="task-start"
+                  type="datetime-local"
+                  value={startDate}
+                  max={dueDate || undefined}
+                  onChange={(e) => setStartDate(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="task-due">Срок (необязательно)</Label>
+                <Input
+                  id="task-due"
+                  type="datetime-local"
+                  value={dueDate}
+                  min={startDate || undefined}
+                  onChange={(e) => setDueDate(e.target.value)}
+                />
+              </div>
             </div>
           </div>
 

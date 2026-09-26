@@ -10,7 +10,7 @@ import { isTaskOverdue, TASK_STATUS_LABELS, TASK_STATUS_ORDER, type Task, type T
 import type { Manager } from '@/types/sales'
 
 const RELATIVE_FORMATTER = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
-const DUE_DATE_FORMATTER = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short' })
+const DUE_DATE_FORMATTER = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 
 export function TaskCard({ task, manager, dealTitle, referenceISO }: { task: Task; manager: Manager | undefined; dealTitle: string | null; referenceISO: string }) {
   const [expanded, setExpanded] = useState(false)
@@ -44,7 +44,12 @@ export function TaskCard({ task, manager, dealTitle, referenceISO }: { task: Tas
           <div className="text-sm text-ink-100 font-medium leading-snug">{task.title}</div>
           {task.description && <p className="text-xs text-ink-500 mt-1 leading-relaxed">{task.description}</p>}
           <div className="flex items-center gap-3 mt-2 text-[11px] text-ink-500">
-            {task.dueDate && <span>Срок: {DUE_DATE_FORMATTER.format(new Date(task.dueDate))}</span>}
+            {(task.startDate || task.dueDate) && (
+              <span>
+                Срок: {task.startDate && `${DUE_DATE_FORMATTER.format(new Date(task.startDate))} – `}
+                {task.dueDate ? DUE_DATE_FORMATTER.format(new Date(task.dueDate)) : '—'}
+              </span>
+            )}
             <span>{task.comments.length} {task.comments.length === 1 ? 'комментарий' : 'комментария'}</span>
           </div>
         </div>

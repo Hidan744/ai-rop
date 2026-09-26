@@ -37,7 +37,9 @@ export interface Task {
   description: string | null
   /** Сделка, к которой привязана задача — необязательно (задача может быть и без привязки к сделке). */
   dealId: string | null
-  /** ISO-дата дедлайна — необязательна. */
+  /** ISO-дата(время) начала работы над задачей — необязательна. */
+  startDate: string | null
+  /** ISO-дата(время) дедлайна — необязательна. */
   dueDate: string | null
   status: TaskStatus
   createdAt: string

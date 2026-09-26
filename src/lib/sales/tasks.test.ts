@@ -20,6 +20,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     title: 'Тестовая задача',
     description: null,
     dealId: null,
+    startDate: null,
     dueDate: null,
     status: 'new',
     createdAt: '2026-09-20T00:00:00.000Z',
