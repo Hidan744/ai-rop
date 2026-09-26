@@ -3,12 +3,16 @@ import type { Manager } from '@/types/sales'
 import {
   buildManagerTaskSummaries,
   buildTaskTitleFromRecommendation,
+  checkAttachmentSize,
+  formatAttachmentSize,
   groupTasksByStatus,
   isTaskOpen,
   isTaskOverdue,
   pickSimulatedManagerReply,
   sortTasks,
+  totalAttachmentsSize,
   type Task,
+  type TaskAttachment,
 } from './tasks'
 
 const REFERENCE = '2026-09-26T00:00:00.000Z'
@@ -25,6 +29,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     status: 'new',
     createdAt: '2026-09-20T00:00:00.000Z',
     comments: [],
+    attachments: [],
     ...overrides,
   }
 }
@@ -118,6 +123,42 @@ describe('buildTaskTitleFromRecommendation', () => {
   it('falls back to the whole sentence when there is no internal stop', () => {
     const title = buildTaskTitleFromRecommendation({ sentence: 'Короткая рекомендация без внутренней точки' })
     expect(title).toBe('Короткая рекомендация без внутренней точки.')
+  })
+})
+
+function makeAttachment(overrides: Partial<TaskAttachment> = {}): TaskAttachment {
+  return { id: 'f1', name: 'file.pdf', size: 1024, type: 'application/pdf', dataUrl: 'data:application/pdf;base64,AAAA', ...overrides }
+}
+
+describe('formatAttachmentSize', () => {
+  it('formats bytes, kilobytes, and megabytes with the right unit', () => {
+    expect(formatAttachmentSize(500)).toBe('500 Б')
+    expect(formatAttachmentSize(2048)).toBe('2 КБ')
+    expect(formatAttachmentSize(3 * 1024 * 1024)).toBe('3.0 МБ')
+  })
+})
+
+describe('totalAttachmentsSize', () => {
+  it('sums attachment sizes, returning 0 for an empty list', () => {
+    expect(totalAttachmentsSize([])).toBe(0)
+    expect(totalAttachmentsSize([makeAttachment({ size: 100 }), makeAttachment({ id: 'f2', size: 200 })])).toBe(300)
+  })
+})
+
+describe('checkAttachmentSize', () => {
+  it('rejects a single file over the per-file limit', () => {
+    const error = checkAttachmentSize(3 * 1024 * 1024, [])
+    expect(error).toMatch(/большой/)
+  })
+
+  it('rejects a file that would push the task total over the combined limit', () => {
+    const existing = [makeAttachment({ size: 5 * 1024 * 1024 })]
+    const error = checkAttachmentSize(1.5 * 1024 * 1024, existing)
+    expect(error).toMatch(/лимит/)
+  })
+
+  it('accepts a file within both limits', () => {
+    expect(checkAttachmentSize(500 * 1024, [])).toBeNull()
   })
 })
 

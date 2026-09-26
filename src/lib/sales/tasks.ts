@@ -30,6 +30,19 @@ export interface TaskComment {
   createdAt: string
 }
 
+/**
+ * Файл, приложенный к задаче. Без реального бэкенда (см. бриф) хранить есть где только
+ * localStorage — поэтому файл лежит как data URL прямо в задаче, а не как ссылка на сервер,
+ * и размер жёстко ограничен (см. ATTACHMENT_LIMITS), иначе один крупный файл забьёт весь стор.
+ */
+export interface TaskAttachment {
+  id: string
+  name: string
+  size: number
+  type: string
+  dataUrl: string
+}
+
 export interface Task {
   id: string
   managerId: string
@@ -44,6 +57,40 @@ export interface Task {
   status: TaskStatus
   createdAt: string
   comments: TaskComment[]
+  attachments: TaskAttachment[]
+}
+
+/** Лимиты вложений — подобраны так, чтобы не забить localStorage (обычно ~5-10 МБ на источник). */
+export const ATTACHMENT_LIMITS = {
+  maxFileSizeBytes: 2 * 1024 * 1024, // 2 МБ на файл
+  maxTotalSizeBytes: 6 * 1024 * 1024, // 6 МБ суммарно на одну задачу
+}
+
+/** Человекочитаемый размер файла (Б/КБ/МБ), для подписи под именем вложения. */
+export function formatAttachmentSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} Б`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} КБ`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} МБ`
+}
+
+/** Суммарный размер уже приложенных файлов. */
+export function totalAttachmentsSize(attachments: TaskAttachment[]): number {
+  return attachments.reduce((sum, a) => sum + a.size, 0)
+}
+
+/**
+ * Можно ли добавить файл такого размера к уже имеющимся вложениям — проверяет и лимит на один
+ * файл, и суммарный лимит на задачу. Возвращает причину отказа (для сообщения в UI) или null,
+ * если файл проходит.
+ */
+export function checkAttachmentSize(fileSize: number, existing: TaskAttachment[]): string | null {
+  if (fileSize > ATTACHMENT_LIMITS.maxFileSizeBytes) {
+    return `Файл слишком большой (макс. ${formatAttachmentSize(ATTACHMENT_LIMITS.maxFileSizeBytes)} на файл)`
+  }
+  if (totalAttachmentsSize(existing) + fileSize > ATTACHMENT_LIMITS.maxTotalSizeBytes) {
+    return `Превышен общий лимит вложений на задачу (${formatAttachmentSize(ATTACHMENT_LIMITS.maxTotalSizeBytes)})`
+  }
+  return null
 }
 
 /** Просрочена ли задача к моменту referenceISO — не выполнена и дедлайн уже прошёл. */

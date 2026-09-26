@@ -319,6 +319,7 @@ export function buildDemoWorkspace(now: Date = new Date()): DemoWorkspace {
         comment('owner', 'Иван, что с КП по этой сделке? Уже 3 недели на этой стадии, сумма крупная — не хотелось бы её потерять.', 100),
         comment('Иван Соколов', 'Клиент запросил доработку тех. задания, жду от него правки. Договорились созвониться завтра, подтолкну.', 70),
       ],
+      attachments: [],
     },
     {
       id: generateId('task'),
@@ -334,6 +335,7 @@ export function buildDemoWorkspace(now: Date = new Date()): DemoWorkspace {
         comment('owner', 'Есть новости по этой сделке? Она тоже давно в «КП отправлено».', 60),
         comment('Иван Соколов', 'Пока не звонил, приоритет был на первую сделку — возьму в работу сегодня-завтра.', 40),
       ],
+      attachments: [],
     },
     {
       id: generateId('task'),
@@ -353,6 +355,7 @@ export function buildDemoWorkspace(now: Date = new Date()): DemoWorkspace {
           65,
         ),
       ],
+      attachments: [],
     },
     {
       id: generateId('task'),
@@ -368,6 +371,7 @@ export function buildDemoWorkspace(now: Date = new Date()): DemoWorkspace {
         comment('owner', 'Нужен обновлённый прайс с новыми ценами — отправь клиенту, пока сделка совсем не остыла.', 150),
         comment('Иван Соколов', 'Готово, отправил обновлённый прайс клиенту сегодня утром.', 130),
       ],
+      attachments: [],
     },
     {
       id: generateId('task'),
@@ -383,6 +387,7 @@ export function buildDemoWorkspace(now: Date = new Date()): DemoWorkspace {
         comment('owner', 'Ольга, актуализируй, пожалуйста, стадии по сделкам — в отчёте расхождения.', 120),
         comment('Ольга Титова', 'Сделала, все стадии актуальны на сегодняшнее утро.', 95),
       ],
+      attachments: [],
     },
     {
       id: generateId('task'),
@@ -395,6 +400,7 @@ export function buildDemoWorkspace(now: Date = new Date()): DemoWorkspace {
       status: 'new',
       createdAt: daysAgoISO(now, 1),
       comments: [comment('owner', 'Дмитрий, возьми в работу — детали лида скинул в чат.', 20)],
+      attachments: [],
     },
   ]
 

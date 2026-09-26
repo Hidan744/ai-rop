@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware'
 import { generateId } from '@/lib/id'
 import { buildDemoWorkspace } from '@/lib/sales/demoData'
 import type { CsvDealRow } from '@/lib/sales/csvDealImport'
-import { pickSimulatedManagerReply, type Task, type TaskStatus } from '@/lib/sales/tasks'
+import { pickSimulatedManagerReply, type Task, type TaskAttachment, type TaskStatus } from '@/lib/sales/tasks'
 import type { ActivityLogEntry, CrmChoice, Deal, Manager, MonthlyPlanFact, SalesProfile } from '@/types/sales'
 
 interface SalesStoreState {
@@ -27,7 +27,15 @@ interface SalesStoreState {
   importDealsFromCsv: (rows: CsvDealRow[]) => { importedCount: number; createdManagers: string[] }
 
   /** Ставит менеджеру новую задачу — из рекомендации, из карточки сделки или вручную. */
-  createTask: (input: { managerId: string; title: string; description?: string | null; dealId?: string | null; startDate?: string | null; dueDate?: string | null }) => Task
+  createTask: (input: {
+    managerId: string
+    title: string
+    description?: string | null
+    dealId?: string | null
+    startDate?: string | null
+    dueDate?: string | null
+    attachments?: TaskAttachment[]
+  }) => Task
   updateTaskStatus: (taskId: string, status: TaskStatus) => void
   /** РОП пишет комментарий в тред задачи — это и есть канал обратной связи в демо-продукте. */
   addComment: (taskId: string, text: string) => void
@@ -139,7 +147,7 @@ export const useSalesStore = create<SalesStoreState>()(
         return { importedCount: newDeals.length, createdManagers }
       },
 
-      createTask: ({ managerId, title, description = null, dealId = null, startDate = null, dueDate = null }) => {
+      createTask: ({ managerId, title, description = null, dealId = null, startDate = null, dueDate = null, attachments = [] }) => {
         const task: Task = {
           id: generateId('task'),
           managerId,
@@ -151,6 +159,7 @@ export const useSalesStore = create<SalesStoreState>()(
           status: 'new',
           createdAt: new Date().toISOString(),
           comments: [],
+          attachments,
         }
         set((s) => ({ tasks: [task, ...s.tasks] }))
         return task

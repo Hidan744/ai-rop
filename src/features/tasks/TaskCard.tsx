@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronUp, Sparkles } from 'lucide-react'
+import { ChevronDown, ChevronUp, Paperclip, Sparkles } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import { useSalesStore } from '@/store/salesStore'
-import { isTaskOverdue, TASK_STATUS_LABELS, TASK_STATUS_ORDER, type Task, type TaskStatus } from '@/lib/sales/tasks'
+import { formatAttachmentSize, isTaskOverdue, TASK_STATUS_LABELS, TASK_STATUS_ORDER, type Task, type TaskStatus } from '@/lib/sales/tasks'
 import type { Manager } from '@/types/sales'
 
 const RELATIVE_FORMATTER = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
@@ -51,7 +51,30 @@ export function TaskCard({ task, manager, dealTitle, referenceISO }: { task: Tas
               </span>
             )}
             <span>{task.comments.length} {task.comments.length === 1 ? 'комментарий' : 'комментария'}</span>
+            {task.attachments.length > 0 && (
+              <span className="inline-flex items-center gap-1">
+                <Paperclip className="size-3" />
+                {task.attachments.length}
+              </span>
+            )}
           </div>
+          {task.attachments.length > 0 && (
+            <ul className="flex flex-wrap gap-1.5 mt-2">
+              {task.attachments.map((a) => (
+                <li key={a.id}>
+                  <a
+                    href={a.dataUrl}
+                    download={a.name}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-ink-800 hover:bg-ink-700 px-2.5 py-1 text-[11px] text-ink-300 max-w-48 truncate"
+                    title={`${a.name} · ${formatAttachmentSize(a.size)}`}
+                  >
+                    <Paperclip className="size-3 shrink-0" />
+                    <span className="truncate">{a.name}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         <div className="shrink-0 flex flex-col items-end gap-2">
