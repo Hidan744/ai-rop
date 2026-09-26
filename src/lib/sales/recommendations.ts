@@ -30,6 +30,12 @@ export const STUCK_BIG_DEALS_MIN_COUNT = 2
 export const CONVERSION_DROP_WARNING_PCT = 15
 /** Падение конверсии, начиная с которого — критическая рекомендация. */
 export const CONVERSION_DROP_CRITICAL_PCT = 25
+/**
+ * Минимум сделок, вошедших в стадию за неделю (в обоих сравниваемых периодах), чтобы
+ * портфельное падение конверсии между стадиями считалось значимым, а не шумом маленькой
+ * выборки — иначе 1 из 2 сделок вместо 2 из 4 даёт «падение на 50%», хотя это не сигнал.
+ */
+export const CONVERSION_DROP_MIN_SAMPLE_SIZE = 6
 /** Доля отказов по одной причине, начиная с которой она считается «основной». */
 export const LOST_REASON_SHARE_WARNING_PCT = 30
 /** Рост среднего цикла сделки к прошлому периоду, начиная с которого — предупреждение. */
@@ -265,8 +271,10 @@ export function buildRecommendations(
 
   for (const current of currentWeekConversions) {
     if (current.rate === null) continue
+    if (current.enteredFrom < CONVERSION_DROP_MIN_SAMPLE_SIZE) continue
     const previous = previousByPair.get(`${current.from}::${current.to}`)
     if (!previous || previous.rate === null) continue
+    if (previous.enteredFrom < CONVERSION_DROP_MIN_SAMPLE_SIZE) continue
     const dropPct = previous.rate - current.rate
     if (dropPct < CONVERSION_DROP_WARNING_PCT) continue
     recommendations.push({

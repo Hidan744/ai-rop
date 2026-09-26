@@ -231,18 +231,20 @@ export function buildDemoWorkspace(now: Date = new Date()): DemoWorkspace {
   }
 
   // --- План/факт по прошлым месяцам (для страницы «Прогноз») ---
+  // Масштаб плана подобран под суммарный объём демо-сделок (5 менеджеров × ~55 сделок), чтобы
+  // план/факт и прогноз конца месяца выглядели правдоподобно, а не в разы отличались от плана.
   const monthNames = monthsBack(now, 4) // 3 прошлых месяца + текущий (текущий факт считается из сделок в сторе)
   const planFactHistory: MonthlyPlanFact[] = monthNames.slice(0, 3).map((month, i) => ({
     month,
-    plan: 9_000_000 + i * 300_000,
-    fact: 8_100_000 + Math.floor(rng() * 2_400_000),
+    plan: 16_500_000 + i * 500_000,
+    fact: 15_200_000 + Math.floor(rng() * 3_400_000),
   }))
 
   const profile: SalesProfile = {
     id: generateBusinessId(),
     companyName: 'Северный Мост',
     niche: 'Дистрибуция промышленного оборудования (B2B)',
-    monthlyPlan: 9_800_000,
+    monthlyPlan: 18_000_000,
     crm: 'amocrm',
     createdAt: new Date().toISOString(),
   }

@@ -46,7 +46,7 @@ export function SalesHealthPanel({
           <Row label="Сквозная конверсия воронки" value={overallConversionPct !== null ? formatPercent(overallConversionPct) : '—'} />
           <Row label="План/факт месяца" value={planFactPct !== null ? formatPercent(planFactPct) : '—'} accent={planFactPct !== null && planFactPct < 80 ? 'warning' : undefined} />
           <Row label="Средний цикл сделки" value={avgCycleLengthDays !== null ? `${Math.round(avgCycleLengthDays)} дн.` : '—'} />
-          <Row label="Сделок требуют внимания" value={`${criticalCount + warningCount}`} accent={criticalCount > 0 ? 'negative' : warningCount > 0 ? 'warning' : undefined} />
+          <Row label="Активных рекомендаций" value={`${criticalCount + warningCount}`} accent={criticalCount > 0 ? 'negative' : warningCount > 0 ? 'warning' : undefined} />
         </div>
       </CardContent>
     </Card>

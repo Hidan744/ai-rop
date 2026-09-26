@@ -97,4 +97,27 @@ describe('buildRecommendations', () => {
     const recs = buildRecommendations([], MANAGERS, [], REFERENCE)
     expect(recs).toEqual([])
   })
+
+  it('ignores portfolio-level conversion swings from a small weekly sample (noise guard)', () => {
+    // Only 2 deals entered new_lead this week (1 of 2 reached qualification = 50%,
+    // vs 2 of 2 the prior week = 100%) — a real 50% drop, but on a sample far too small
+    // to be meaningful. Must not produce a conversion_drop recommendation.
+    const deals: Deal[] = [
+      makeDeal({ id: 'w1', managerId: 'olga', createdAt: '2026-09-24T00:00:00.000Z', stage: 'qualification', stageHistory: [
+        { stage: 'new_lead', enteredAt: '2026-09-24T00:00:00.000Z' },
+        { stage: 'qualification', enteredAt: '2026-09-25T00:00:00.000Z' },
+      ] }),
+      makeDeal({ id: 'w2', managerId: 'olga', createdAt: '2026-09-24T00:00:00.000Z', stage: 'new_lead' }),
+      makeDeal({ id: 'p1', managerId: 'olga', createdAt: '2026-09-14T00:00:00.000Z', stage: 'qualification', stageHistory: [
+        { stage: 'new_lead', enteredAt: '2026-09-14T00:00:00.000Z' },
+        { stage: 'qualification', enteredAt: '2026-09-15T00:00:00.000Z' },
+      ] }),
+      makeDeal({ id: 'p2', managerId: 'olga', createdAt: '2026-09-14T00:00:00.000Z', stage: 'qualification', stageHistory: [
+        { stage: 'new_lead', enteredAt: '2026-09-14T00:00:00.000Z' },
+        { stage: 'qualification', enteredAt: '2026-09-16T00:00:00.000Z' },
+      ] }),
+    ]
+    const recs = buildRecommendations(deals, MANAGERS, [], REFERENCE)
+    expect(recs.some((r) => r.type === 'conversion_drop')).toBe(false)
+  })
 })
